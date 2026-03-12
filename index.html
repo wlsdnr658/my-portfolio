@@ -845,6 +845,92 @@
             }
         }
 
+        /* ── Custom Prompt Panel ── */
+        .prompt-panel {
+            margin-bottom: 16px;
+            background: var(--surf);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px var(--shadow);
+            display: none;
+        }
+        .prompt-panel.open { display: block }
+
+        .prompt-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: var(--surf2);
+            border-bottom: 1px solid var(--border);
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .prompt-panel-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--t2);
+            letter-spacing: .5px;
+        }
+        .prompt-counter {
+            font-size: 11px;
+            color: var(--t3);
+            font-family: var(--mono);
+            margin-left: 8px;
+        }
+        .prompt-panel-actions { display: flex; gap: 8px }
+
+        .prompt-reset-btn {
+            padding: 5px 11px;
+            border-radius: 5px;
+            border: 1px solid var(--border);
+            background: var(--surf);
+            color: var(--t3);
+            font-family: var(--mono);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .prompt-reset-btn:hover { border-color: var(--orange); color: var(--orange) }
+
+        .prompt-textarea {
+            width: 100%;
+            min-height: 160px;
+            padding: 14px;
+            background: var(--surf);
+            border: none;
+            color: var(--t1);
+            font-family: var(--mono);
+            font-size: 12px;
+            line-height: 1.7;
+            resize: vertical;
+            outline: none;
+        }
+        .prompt-textarea::placeholder { color: var(--t3) }
+        .prompt-textarea:focus { background: #fafcff }
+
+        .prompt-toggle-btn {
+            padding: 7px 14px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--surf);
+            color: var(--t2);
+            font-family: var(--mono);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all .18s;
+            letter-spacing: .5px;
+            box-shadow: 0 1px 3px var(--shadow);
+            white-space: nowrap;
+        }
+        .prompt-toggle-btn:hover,
+        .prompt-toggle-btn.active {
+            border-color: var(--blue);
+            color: var(--blue);
+            background: var(--blue-bg);
+        }
+
         /* ── Scrollbar ── */
         ::-webkit-scrollbar {
             width: 5px
@@ -883,11 +969,11 @@
 
     <!-- GitHub Token -->
     <div class="apikey-row">
-        <label>🔑 GITHUB TOKEN</label>
+        <label for="apiKeyInput">🔑 GITHUB TOKEN</label>
         <input class="apikey-input" type="password" id="apiKeyInput"
                placeholder="ghp_xxxx 또는 github_pat_xxxx" autocomplete="off">
         <button class="save-btn" id="saveBtn" onclick="saveToken()" title="이 브라우저에 토큰 저장">💾 저장</button>
-        <select class="model-select" id="modelSelect">
+        <select class="model-select" id="modelSelect" aria-label="AI 모델 선택">
             <optgroup label="🟢 OpenAI">
                 <option value="gpt-4o">GPT-4o</option>
                 <option value="gpt-4o-mini">GPT-4o mini</option>
@@ -930,12 +1016,29 @@
             <button class="fbtn" onclick="setFilter(this,'critical')">💀 Critical</button>
             <button class="fbtn" onclick="setFilter(this,'high')">🔴 High</button>
             <button class="fbtn" onclick="setFilter(this,'medium')">🟡 Medium</button>
+            <button class="prompt-toggle-btn" id="promptToggleBtn" onclick="togglePromptPanel()">✏️ 프롬프트 편집</button>
         </div>
         <button class="fetch-btn" id="fetchBtn" onclick="fetchIssues()">
             <span class="btn-icon">🔍</span>
-            <div class="spinner"></div>
+            <span class="spinner" aria-hidden="true"></span>
             보안 이슈 수집
         </button>
+    </div>
+
+    <!-- Custom Prompt Panel -->
+    <div class="prompt-panel" id="promptPanel">
+        <div class="prompt-panel-header">
+            <span class="prompt-panel-title">
+                ✏️ 커스텀 프롬프트 — 직접 입력한 내용으로 AI에게 질의합니다
+                <span class="prompt-counter" id="promptCounter">0자</span>
+            </span>
+            <div class="prompt-panel-actions">
+                <button class="prompt-reset-btn" onclick="resetPrompt()">↺ 기본값으로</button>
+            </div>
+        </div>
+        <label for="customPrompt" style="display:none">커스텀 프롬프트</label>
+        <textarea class="prompt-textarea" id="customPrompt"
+            placeholder="예시: Spring Security 6.x의 인증 우회 취약점만 JSON 형식으로 분석해줘&#10;예시: Log4j 관련 최신 CVE 목록을 심각도 순으로 정리해줘&#10;&#10;※ 비워두면 기본 프롬프트(Next.js + Spring Boot 전체 분석)가 사용됩니다."></textarea>
     </div>
 
     <!-- Stats -->
@@ -993,8 +1096,18 @@
     const GH_MODELS_URL = 'https://models.inference.ai.azure.com/chat/completions';
     const TOKEN_KEY = 'gh_sec_token';
     const MODEL_KEY = 'gh_sec_model';
+    const CUSTOM_PROMPT_KEY = 'gh_custom_prompt';
+    const PROMPT_PANEL_OPEN_KEY = 'gh_prompt_panel_open';
+    const MAX_PROMPT_CHARS = 12000;
 
-    /* ── 초기화: localStorage에서 토큰/모델 복원 ── */
+    function updatePromptCounter() {
+        const len = document.getElementById('customPrompt').value.length;
+        const el = document.getElementById('promptCounter');
+        el.textContent = `${len}자`;
+        el.style.color = len > MAX_PROMPT_CHARS ? 'var(--red)' : 'var(--t3)';
+    }
+
+    /* ── 초기화: localStorage에서 토큰/모델/프롬프트 복원 ── */
     (function init() {
         const saved = localStorage.getItem(TOKEN_KEY);
         if (saved) {
@@ -1007,7 +1120,22 @@
             const sel = document.getElementById('modelSelect');
             if ([...sel.options].some(o => o.value === savedModel)) sel.value = savedModel;
         }
+
+        const savedPrompt = localStorage.getItem(CUSTOM_PROMPT_KEY);
+        if (savedPrompt) document.getElementById('customPrompt').value = savedPrompt;
+
+        const panelOpen = localStorage.getItem(PROMPT_PANEL_OPEN_KEY) === '1';
+        if (panelOpen) {
+            document.getElementById('promptPanel').classList.add('open');
+            document.getElementById('promptToggleBtn').classList.add('active');
+        }
+        updatePromptCounter();
     })();
+
+    document.getElementById('customPrompt').addEventListener('input', function () {
+        localStorage.setItem(CUSTOM_PROMPT_KEY, this.value);
+        updatePromptCounter();
+    });
 
     /* ── 토큰 저장 ── */
     function saveToken() {
@@ -1079,6 +1207,55 @@
         document.getElementById('statusText').textContent = text;
     }
 
+    /* ── 프롬프트 패널 토글 ── */
+    function togglePromptPanel() {
+        const panel = document.getElementById('promptPanel');
+        const btn   = document.getElementById('promptToggleBtn');
+        const isOpen = panel.classList.toggle('open');
+        btn.classList.toggle('active', isOpen);
+        localStorage.setItem(PROMPT_PANEL_OPEN_KEY, isOpen ? '1' : '0');
+        if (isOpen && !document.getElementById('customPrompt').value.trim()) {
+            document.getElementById('customPrompt').focus();
+        }
+    }
+
+    /* ── 기본 프롬프트로 초기화 ── */
+    function resetPrompt() {
+        document.getElementById('customPrompt').value = '';
+        localStorage.removeItem(CUSTOM_PROMPT_KEY);
+        updatePromptCounter();
+        document.getElementById('customPrompt').placeholder =
+            '예시: Spring Security 6.x의 인증 우회 취약점만 JSON 형식으로 분석해줘\n예시: Log4j 관련 최신 CVE 목록을 심각도 순으로 정리해줘\n\n※ 비워두면 기본 프롬프트(Next.js + Spring Boot 전체 분석)가 사용됩니다.';
+    }
+
+    /* ── 프롬프트 반환: 커스텀 우선, 없으면 기본값 ── */
+    function getPrompt() {
+        const custom = document.getElementById('customPrompt').value.trim();
+        if (!custom) return PROMPT();
+        return custom + `
+
+---
+【응답 형식 — 반드시 준수】
+순수 JSON 배열만 반환. 마크다운 코드블록·설명 절대 금지.
+
+[
+  {
+    "id": "고유ID",
+    "tech": "nextjs 또는 spring",
+    "severity": "critical 또는 high 또는 medium 또는 low",
+    "cvssScore": 숫자(0.0~10.0),
+    "cve": "CVE-YYYY-NNNNN 또는 null",
+    "type": "취약점 유형",
+    "title": "이슈 제목(한국어)",
+    "description": "상세 설명(한국어, 2~3문장)",
+    "affectedVersions": "영향받는 버전 또는 null",
+    "patchedVersion": "패치 버전 또는 null",
+    "source": "출처명",
+    "publishedDate": "YYYY-MM-DD 또는 null"
+  }
+]`;
+    }
+
     /* ── 필터 ── */
     function setFilter(btn, f) {
         document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
@@ -1089,11 +1266,18 @@
 
     /* ── Fetch ── */
     async function fetchIssues() {
-        const apiKey = document.getElementById('apiKeyInput').value.trim();
-        const model = document.getElementById('modelSelect').value;
+        const apiKey   = document.getElementById('apiKeyInput').value.trim();
+        const model    = document.getElementById('modelSelect').value;
+        const isCustom = !!document.getElementById('customPrompt').value.trim();
 
         if (!apiKey) {
             alert('GitHub Personal Access Token을 입력해 주세요.');
+            return;
+        }
+
+        const promptText = getPrompt();
+        if (promptText.length > MAX_PROMPT_CHARS) {
+            alert(`프롬프트가 너무 깁니다. ${MAX_PROMPT_CHARS.toLocaleString()}자 이하로 줄여 주세요.`);
             return;
         }
 
@@ -1104,15 +1288,14 @@
         allIssues = [];
         document.getElementById('stats').style.display = 'none';
         document.getElementById('main').innerHTML = `
-    <div class="state">
-      <div class="state-icon">🤖</div>
-      <div class="state-title">GitHub Copilot (${model})이 보안 이슈를 분석 중입니다</div>
-      <div class="state-desc">최신 CVE 데이터베이스 및 보안 어드바이저리 검토 중...</div>
-      <div class="progress"><div class="progress-bar"></div></div>
-    </div>`;
+            <div class="state">
+                <div class="state-icon">🤖</div>
+                <div class="state-title">${escHtml(model)} 모델이 ${isCustom ? '커스텀 프롬프트를' : '보안 이슈를'} 분석 중입니다</div>
+                <div class="state-desc">${isCustom ? '입력하신 프롬프트로 AI에게 질의 중...' : '최신 CVE 데이터베이스 및 보안 어드바이저리 검토 중...'}</div>
+                <div class="progress"><div class="progress-bar"></div></div>
+            </div>`;
 
         try {
-            // GitHub Models API 직접 호출 (OpenAI 호환 형식)
             const res = await fetch(GH_MODELS_URL, {
                 method: 'POST',
                 headers: {
@@ -1122,7 +1305,7 @@
                 body: JSON.stringify({
                     model,
                     max_tokens: 4000,
-                    messages: [{role: 'user', content: PROMPT()}]
+                    messages: [{ role: 'user', content: promptText }]
                 })
             });
 
@@ -1131,43 +1314,40 @@
                 try {
                     const errJson = await res.json();
                     errMsg = errJson.error?.message || errJson.message || errMsg;
-                } catch { /* 파싱 실패 시 기본 메시지 */
-                }
+                } catch { /* ignore */ }
                 throw new Error(errMsg);
             }
 
-            // OpenAI 형식 응답 파싱
-            const data = await res.json();
-            const raw = data.choices?.[0]?.message?.content ?? '';
+            const data  = await res.json();
+            const raw   = data.choices?.[0]?.message?.content ?? '';
             const clean = raw.replace(/```json|```/g, '').trim();
-            const match = clean.match(/\[[\s\S]*\]/);
+            const match = clean.match(/\[[\s\S]*]/);
             if (!match) throw new Error('JSON 응답을 파싱할 수 없습니다. 다시 시도해 주세요.');
 
             const issues = JSON.parse(match[0]);
-            if (!Array.isArray(issues) || issues.length === 0) throw new Error('이슈 목록이 비어 있습니다.');
+            if (!Array.isArray(issues) || !issues.length) throw new Error('이슈 목록이 비어 있습니다.');
 
             allIssues = issues;
             renderIssues(issues);
             updateStats(issues);
             document.getElementById('stats').style.display = 'grid';
-            setStatus('ok', '수집 완료');
+            setStatus('ok', isCustom ? '커스텀 분석 완료' : '수집 완료');
             document.getElementById('lastUp').textContent = new Date().toLocaleTimeString('ko-KR') + ' 업데이트';
 
         } catch (e) {
             const isAuthErr = /401|403|unauthorized|forbidden/i.test(e.message);
             const isCorsErr = /failed to fetch|cors|network/i.test(e.message);
-
             let hint = '다시 시도해 주세요.';
             if (isAuthErr) hint = 'GitHub 토큰을 확인해 주세요. Classic PAT인지, Copilot 유료 구독 계정으로 생성한 토큰인지 확인해 주세요.';
             if (isCorsErr) hint = 'CORS 오류: 브라우저 확장 프로그램이 요청을 차단하고 있을 수 있습니다.<br>시크릿 창에서 다시 시도해 보세요.';
 
             document.getElementById('main').innerHTML = `
-      <div class="error-box">⚠️ ${escHtml(e.message)}</div>
-      <div class="state">
-        <div class="state-icon">⚠️</div>
-        <div class="state-title">오류가 발생했습니다</div>
-        <div class="state-desc">${hint}</div>
-      </div>`;
+                <div class="error-box">⚠️ ${escHtml(e.message)}</div>
+                <div class="state">
+                    <div class="state-icon">⚠️</div>
+                    <div class="state-title">오류가 발생했습니다</div>
+                    <div class="state-desc">${hint}</div>
+                </div>`;
             setStatus('err', '오류');
         } finally {
             btn.disabled = false;
@@ -1255,7 +1435,7 @@
         </div>
       </div>
       <div class="score-col">
-        <div class="cvss-val" style="color:${scoreColor(issue.cvssScore)};text-shadow:0 0 12px ${scoreColor(issue.cvssScore)}55">
+        <div class="cvss-val" style="color:${scoreColor(issue.cvssScore)}">
           ${issue.cvssScore != null ? Number(issue.cvssScore).toFixed(1) : '—'}
         </div>
         <div class="cvss-label">CVSS</div>
