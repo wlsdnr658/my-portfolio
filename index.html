@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SecWatch — NextJS & Spring Boot 보안 레이더</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080b10;
+  --surf: #0d1117;
+  --surf2: #161b22;
+  --surf3: #1c2330;
+  --border: #21262d;
+  --green: #00ff88;
+  --blue: #4facfe;
+  --orange: #ff6b35;
+  --red: #ff3b5c;
+  --yellow: #ffd60a;
+  --next: #00d8ff;
+  --spring: #6db33f;
+  --t1: #e6edf3;
+  --t2: #8b949e;
+  --t3: #484f58;
+  --mono: 'JetBrains Mono', 'Courier New', monospace;
+  --syne: 'Syne', sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--t1);font-family:var(--mono);
+  min-height:100vh;overflow-x:hidden;font-size:13px;
+  background-image:
+    linear-gradient(rgba(0,255,136,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,255,136,.025) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+body::after{
+  content:'';position:fixed;top:-15%;left:50%;transform:translateX(-50%);
+  width:700px;height:380px;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse,rgba(0,255,136,.05) 0%,transparent 68%);
+}
+.wrap{position:relative;z-index:1;max-width:1320px;margin:0 auto;padding:0 22px}
+
+/* ── Header ── */
+header{
+  padding:28px 0 22px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px
+}
+.logo{display:flex;align-items:center;gap:14px}
+.logo-icon{
+  width:46px;height:46px;border-radius:12px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--green),var(--blue));
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+  box-shadow:0 0 24px rgba(0,255,136,.28)
+}
+.logo-title{font-family:var(--syne);font-size:22px;font-weight:800;
+  background:linear-gradient(90deg,var(--green),var(--blue));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo-sub{font-size:10px;color:var(--t3);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.header-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.status-pill{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 14px;background:var(--surf);border:1px solid var(--border);
+  border-radius:8px;font-size:12px;color:var(--t2)
+}
+.dot{width:8px;height:8px;border-radius:50%;transition:background .3s,box-shadow .3s}
+.dot.idle{background:var(--t3)}
+.dot.running{background:var(--yellow);box-shadow:0 0 8px var(--yellow);animation:pulse 1.4s ease-in-out infinite}
+.dot.ok{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2.5s ease-in-out infinite}
+.dot.err{background:var(--red);box-shadow:0 0 8px var(--red)}
+.last-up{font-size:11px;color:var(--t3)}
+
+/* ── API Key row ── */
+.apikey-row{
+  margin:18px 0 0;padding:14px 18px;
+  background:var(--surf);border:1px solid var(--border);border-radius:10px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap
+}
+.apikey-row label{font-size:11px;color:var(--t3);letter-spacing:1px;white-space:nowrap}
+.apikey-input{
+  flex:1;min-width:220px;padding:8px 12px;
+  background:var(--surf2);border:1px solid var(--border);border-radius:6px;
+  color:var(--t1);font-family:var(--mono);font-size:12px;outline:none;
+  transition:border-color .2s
+}
+.apikey-input:focus{border-color:var(--green)}
+.apikey-hint{font-size:11px;color:var(--t3)}
+.apikey-hint a{color:var(--blue);text-decoration:none}
+.apikey-hint a:hover{text-decoration:underline}
+
+/* ── Controls ── */
+.controls{
+  padding:20px 0;display:flex;align-items:center;
+  justify-content:space-between;flex-wrap:wrap;gap:12px
+}
+.filter-group{display:flex;gap:8px;flex-wrap:wrap}
+.fbtn{
+  padding:7px 14px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surf);color:var(--t2);font-family:var(--mono);
+  font-size:11px;cursor:pointer;transition:all .18s;letter-spacing:.5px
+}
+.fbtn:hover,.fbtn.active{border-color:var(--green);color:var(--green);background:rgba(0,255,136,.08)}
+.fbtn.f-next.active{border-color:var(--next);color:var(--next);background:rgba(0,216,255,.08)}
+.fbtn.f-spring.active{border-color:var(--spring);color:var(--spring);background:rgba(109,179,63,.08)}
+.fetch-btn{
+  padding:10px 22px;border-radius:8px;border:none;
+  background:linear-gradient(135deg,var(--green),#00c970);
+  color:#000;font-family:var(--syne);font-size:13px;font-weight:700;
+  cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;
+  box-shadow:0 0 16px rgba(0,255,136,.22);letter-spacing:.3px
+}
+.fetch-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 0 28px rgba(0,255,136,.4)}
+.fetch-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+.spinner{
+  width:13px;height:13px;border:2px solid rgba(0,0,0,.25);
+  border-top-color:#000;border-radius:50%;
+  animation:spin .75s linear infinite;display:none
+}
+.fetch-btn.loading .spinner{display:block}
+.fetch-btn.loading .btn-icon{display:none}
+
+/* ── Stats ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:22px}
+.scard{
+  background:var(--surf);border:1px solid var(--border);border-radius:10px;
+  padding:14px 18px;transition:border-color .2s
+}
+.scard:hover{border-color:#30363d}
+.scard-label{font-size:9px;color:var(--t3);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+.scard-val{font-family:var(--syne);font-size:30px;font-weight:800;line-height:1}
+.scard-val.c-total{color:var(--green);text-shadow:0 0 14px rgba(0,255,136,.3)}
+.scard-val.c-critical{color:var(--red);text-shadow:0 0 14px rgba(255,59,92,.3)}
+.scard-val.c-high{color:var(--orange)}
+.scard-val.c-medium{color:var(--yellow)}
+.scard-val.c-next{color:var(--next)}
+.scard-val.c-spring{color:var(--spring)}
+
+/* ── Section divider ── */
+.divider{
+  display:flex;align-items:center;gap:12px;
+  margin:4px 0 16px;font-size:10px;color:var(--t3);
+  letter-spacing:2px;text-transform:uppercase
+}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── Issue cards ── */
+.grid{display:grid;gap:12px;margin-bottom:40px}
+.card{
+  background:var(--surf);border:1px solid var(--border);border-radius:12px;
+  padding:18px 20px 18px 22px;
+  display:grid;grid-template-columns:58px 1fr 58px;gap:14px;align-items:start;
+  border-left-width:3px;border-left-style:solid;
+  transition:background .2s,border-color .2s,transform .2s,box-shadow .2s;
+  animation:fadeUp .35s ease both
+}
+.card:hover{background:var(--surf2);border-color:#30363d;transform:translateY(-2px);box-shadow:0 12px 36px rgba(0,0,0,.45)}
+.card.sev-critical{border-left-color:var(--red)}
+.card.sev-high{border-left-color:var(--orange)}
+.card.sev-medium{border-left-color:var(--yellow)}
+.card.sev-low{border-left-color:var(--blue)}
+
+.sev-col{display:flex;flex-direction:column;align-items:center;gap:5px}
+.sev-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.card.sev-critical .sev-icon{background:rgba(255,59,92,.12)}
+.card.sev-high .sev-icon{background:rgba(255,107,53,.12)}
+.card.sev-medium .sev-icon{background:rgba(255,214,10,.12)}
+.card.sev-low .sev-icon{background:rgba(79,172,254,.12)}
+.sev-label{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600}
+.card.sev-critical .sev-label{color:var(--red)}
+.card.sev-high .sev-label{color:var(--orange)}
+.card.sev-medium .sev-label{color:var(--yellow)}
+.card.sev-low .sev-label{color:var(--blue)}
+
+.body{}
+.tags{display:flex;align-items:center;gap:7px;margin-bottom:8px;flex-wrap:wrap}
+.tag{padding:3px 9px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.tag-next{background:rgba(0,216,255,.1);color:var(--next);border:1px solid rgba(0,216,255,.22)}
+.tag-spring{background:rgba(109,179,63,.1);color:var(--spring);border:1px solid rgba(109,179,63,.22)}
+.tag-type{background:var(--surf3);color:var(--t2);border:1px solid var(--border);font-weight:400;text-transform:none;letter-spacing:.5px}
+.tag-cve{background:rgba(255,107,53,.08);color:var(--orange);border:1px solid rgba(255,107,53,.22)}
+.card-title{font-family:var(--syne);font-size:14px;font-weight:700;color:var(--t1);margin-bottom:8px;line-height:1.4}
+.card-desc{font-size:12px;color:var(--t2);line-height:1.75;margin-bottom:12px}
+.meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.meta-item{font-size:11px;color:var(--t3)}
+.meta-patched{font-size:11px;color:var(--spring)}
+.src-link{font-size:11px;color:var(--blue);text-decoration:none}
+.src-link:hover{text-decoration:underline}
+
+.score-col{text-align:center}
+.cvss-val{font-family:var(--syne);font-size:24px;font-weight:800;line-height:1}
+.cvss-label{font-size:9px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px}
+
+/* ── State screens ── */
+.state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:16px;text-align:center}
+.state-icon{font-size:52px;opacity:.35}
+.state-title{font-family:var(--syne);font-size:18px;font-weight:700;color:var(--t2)}
+.state-desc{font-size:12px;color:var(--t3);line-height:1.8;max-width:360px}
+.progress{width:200px;height:3px;background:var(--surf2);border-radius:3px;overflow:hidden;margin-top:4px}
+.progress-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--green),var(--blue));animation:scan 1.8s ease-in-out infinite}
+.error-box{
+  background:rgba(255,59,92,.07);border:1px solid rgba(255,59,92,.28);
+  border-radius:10px;padding:14px 18px;color:var(--red);
+  font-size:12px;margin-bottom:18px;display:flex;gap:10px;align-items:flex-start
+}
+
+/* ── Footer ── */
+footer{border-top:1px solid var(--border);padding:18px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+footer p{font-size:11px;color:var(--t3)}
+.powered{font-size:11px;color:var(--t3)}
+.powered span{color:var(--green);font-weight:600}
+
+/* ── Animations ── */
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.78)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scan{0%{width:0;margin-left:0}50%{width:65%;margin-left:0}100%{width:0;margin-left:100%}}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--surf3);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🛡️</div>
+      <div>
+        <div class="logo-title">SecWatch</div>
+        <div class="logo-sub">Security Radar · Next.js &amp; Spring Boot</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-pill">
+        <div class="dot idle" id="dot"></div>
+        <span id="statusText">대기 중</span>
+      </div>
+      <div class="last-up" id="lastUp"></div>
+    </div>
+  </header>
+
+  <!-- API Key -->
+  <div class="apikey-row">
+    <label>🔑 ANTHROPIC API KEY</label>
+    <input class="apikey-input" type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off">
+    <span class="apikey-hint">
+      키가 없다면 <a href="https://console.anthropic.com/keys" target="_blank">console.anthropic.com</a>에서 발급 →
+      서버 실행 시 <code>ANTHROPIC_API_KEY</code> 환경변수로도 설정 가능
+    </span>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="filter-group">
+      <button class="fbtn active"      onclick="setFilter(this,'all')">ALL</button>
+      <button class="fbtn f-next"      onclick="setFilter(this,'nextjs')">⬡ Next.js</button>
+      <button class="fbtn f-spring"    onclick="setFilter(this,'spring')">🍃 Spring Boot</button>
+      <button class="fbtn"             onclick="setFilter(this,'critical')">💀 Critical</button>
+      <button class="fbtn"             onclick="setFilter(this,'high')">🔴 High</button>
+      <button class="fbtn"             onclick="setFilter(this,'medium')">🟡 Medium</button>
+    </div>
+    <button class="fetch-btn" id="fetchBtn" onclick="fetchIssues()">
+      <span class="btn-icon">🔍</span>
+      <div class="spinner"></div>
+      보안 이슈 수집
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="stats" style="display:none">
+    <div class="scard"><div class="scard-label">TOTAL</div><div class="scard-val c-total"  id="s-total">0</div></div>
+    <div class="scard"><div class="scard-label">CRITICAL</div><div class="scard-val c-critical" id="s-critical">0</div></div>
+    <div class="scard"><div class="scard-label">HIGH</div><div class="scard-val c-high"    id="s-high">0</div></div>
+    <div class="scard"><div class="scard-label">MEDIUM</div><div class="scard-val c-medium"  id="s-medium">0</div></div>
+    <div class="scard"><div class="scard-label">NEXT.JS</div><div class="scard-val c-next"    id="s-next">0</div></div>
+    <div class="scard"><div class="scard-label">SPRING BOOT</div><div class="scard-val c-spring"  id="s-spring">0</div></div>
+  </div>
+
+  <!-- Main content -->
+  <div id="main">
+    <div class="state">
+      <div class="state-icon">🔐</div>
+      <div class="state-title">보안 이슈 레이더 준비 완료</div>
+      <div class="state-desc">
+        API 키를 입력하고 "보안 이슈 수집" 버튼을 눌러<br>
+        오늘의 Next.js · Spring Boot 최신 보안 취약점을 분석합니다.
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>SecWatch v1.0 · AI 기반 보안 이슈 분석 시스템</p>
+    <div class="powered">⚡ Powered by <span>Claude AI</span></div>
+  </footer>
+</div>
+
+<script>
+const SEV_ORDER = {critical:0,high:1,medium:2,low:3};
+const SEV_ICON  = {critical:'💀',high:'🔴',medium:'🟡',low:'🔵'};
+
+const PROMPT = () => `당신은 웹 보안 전문가입니다. 오늘(${new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})}) 기준으로 최근 이슈화된 NextJS 및 Spring Boot 관련 주요 보안 취약점과 CVE를 분석해주세요.
+
+반드시 순수 JSON 배열만 반환하세요. 마크다운 코드블록이나 부가 설명 없이 JSON만 출력하세요.
+
+[
+  {
+    "id": "고유ID",
+    "tech": "nextjs 또는 spring",
+    "severity": "critical 또는 high 또는 medium 또는 low",
+    "cvssScore": 숫자(0.0~10.0),
+    "cve": "CVE-XXXX-XXXXX 또는 null",
+    "type": "취약점 유형(XSS, RCE, SSRF, SQL Injection 등)",
+    "title": "이슈 제목(한국어, 구체적으로)",
+    "description": "상세 설명(한국어, 2~3문장, 기술적으로)",
+    "affectedVersions": "영향받는 버전",
+    "patchedVersion": "패치 버전 또는 null",
+    "source": "NVD, GitHub Advisory, Snyk 등",
+    "sourceUrl": "실제 관련 URL",
+    "publishedDate": "YYYY-MM-DD"
+  }
+]
+
+최소 8개, 최대 12개. critical 2개, high 3~4개, medium 3~4개, low 1~2개로 구성하세요.`;
+
+let allIssues = [];
+let currentFilter = 'all';
+
+/* ── 상태 헬퍼 ── */
+function setStatus(state, text) {
+  const dot = document.getElementById('dot');
+  dot.className = 'dot ' + state;
+  document.getElementById('statusText').textContent = text;
+}
+
+/* ── 필터 ── */
+function setFilter(btn, f) {
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = f;
+  if (allIssues.length) renderIssues(allIssues);
+}
+
+/* ── Fetch ── */
+async function fetchIssues() {
+  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  if (!apiKey) {
+    alert('API 키를 입력해 주세요.');
+    return;
+  }
+
+  const btn = document.getElementById('fetchBtn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  setStatus('running', 'AI 분석 중...');
+  allIssues = [];
+  document.getElementById('stats').style.display = 'none';
+  document.getElementById('main').innerHTML = `
+    <div class="state">
+      <div class="state-icon">🤖</div>
+      <div class="state-title">Claude AI가 보안 이슈를 분석 중입니다</div>
+      <div class="state-desc">최신 CVE 데이터베이스 및 보안 어드바이저리 검토 중...</div>
+      <div class="progress"><div class="progress-bar"></div></div>
+    </div>`;
+
+  try {
+    const res = await fetch('http://localhost:3000/api/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: PROMPT() }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const raw  = (data.content || []).map(c => c.text || '').join('');
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const match = clean.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('JSON을 파싱할 수 없습니다.');
+    const issues = JSON.parse(match[0]);
+
+    allIssues = issues;
+    renderIssues(issues);
+    updateStats(issues);
+    document.getElementById('stats').style.display = 'grid';
+    setStatus('ok', '수집 완료');
+    document.getElementById('lastUp').textContent = new Date().toLocaleTimeString('ko-KR') + ' 업데이트';
+
+  } catch (e) {
+    document.getElementById('main').innerHTML = `
+      <div class="error-box">⚠️ ${e.message}</div>
+      <div class="state">
+        <div class="state-icon">⚠️</div>
+        <div class="state-title">오류가 발생했습니다</div>
+        <div class="state-desc">프록시 서버가 실행 중인지 확인하고 다시 시도해주세요.<br><code>node server.js</code></div>
+      </div>`;
+    setStatus('err', '오류');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+  }
+}
+
+/* ── Stats ── */
+function updateStats(issues) {
+  document.getElementById('s-total').textContent    = issues.length;
+  document.getElementById('s-critical').textContent = issues.filter(i=>i.severity==='critical').length;
+  document.getElementById('s-high').textContent     = issues.filter(i=>i.severity==='high').length;
+  document.getElementById('s-medium').textContent   = issues.filter(i=>i.severity==='medium').length;
+  document.getElementById('s-next').textContent     = issues.filter(i=>i.tech==='nextjs').length;
+  document.getElementById('s-spring').textContent   = issues.filter(i=>i.tech==='spring').length;
+}
+
+/* ── Render ── */
+function scoreColor(s) {
+  return s >= 9 ? 'var(--red)' : s >= 7 ? 'var(--orange)' : s >= 4 ? 'var(--yellow)' : 'var(--blue)';
+}
+
+function renderIssues(issues) {
+  const filtered = issues
+    .filter(i => {
+      if (currentFilter === 'all')    return true;
+      if (currentFilter === 'nextjs') return i.tech === 'nextjs';
+      if (currentFilter === 'spring') return i.tech === 'spring';
+      return i.severity === currentFilter;
+    })
+    .sort((a,b) => (SEV_ORDER[a.severity]??4) - (SEV_ORDER[b.severity]??4));
+
+  if (!filtered.length) {
+    document.getElementById('main').innerHTML = `
+      <div class="state">
+        <div class="state-icon">🔍</div>
+        <div class="state-title">해당 조건의 이슈가 없습니다</div>
+      </div>`;
+    return;
+  }
+
+  const cards = filtered.map((issue, idx) => {
+    const techTag = issue.tech === 'nextjs'
+      ? '<span class="tag tag-next">⬡ Next.js</span>'
+      : '<span class="tag tag-spring">🍃 Spring Boot</span>';
+    const cveTag = issue.cve
+      ? `<span class="tag tag-cve">${escHtml(issue.cve)}</span>` : '';
+    const patchRow = issue.patchedVersion
+      ? `<span class="meta-patched">✅ 패치: ${escHtml(issue.patchedVersion)}</span>` : '';
+
+    return `
+    <div class="card sev-${issue.severity}" style="animation-delay:${idx*55}ms">
+      <div class="sev-col">
+        <div class="sev-icon">${SEV_ICON[issue.severity] || '⚪'}</div>
+        <div class="sev-label">${issue.severity}</div>
+      </div>
+      <div class="body">
+        <div class="tags">
+          ${techTag}
+          <span class="tag tag-type">${escHtml(issue.type || '')}</span>
+          ${cveTag}
+        </div>
+        <div class="card-title">${escHtml(issue.title)}</div>
+        <div class="card-desc">${escHtml(issue.description)}</div>
+        <div class="meta">
+          <span class="meta-item">📅 ${escHtml(issue.publishedDate || '최근')}</span>
+          <span class="meta-item">🔧 ${escHtml(issue.affectedVersions || '다수 버전')}</span>
+          ${patchRow}
+          <a class="src-link" href="${escHtml(issue.sourceUrl || '#')}" target="_blank" rel="noopener">
+            🔗 ${escHtml(issue.source || '출처')}
+          </a>
+        </div>
+      </div>
+      <div class="score-col">
+        <div class="cvss-val" style="color:${scoreColor(issue.cvssScore)};text-shadow:0 0 12px ${scoreColor(issue.cvssScore)}55">
+          ${issue.cvssScore != null ? Number(issue.cvssScore).toFixed(1) : '—'}
+        </div>
+        <div class="cvss-label">CVSS</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('main').innerHTML = `
+    <div class="divider">${filtered.length}개 이슈</div>
+    <div class="grid">${cards}</div>`;
+}
+
+function escHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
